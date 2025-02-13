@@ -70,8 +70,12 @@ leaderboardDecoder =
 -}
 leaderboardView : List Salesman -> Html msg
 leaderboardView salesmen =
+    let
+        sortedSalesmen =
+            List.sortBy (\s -> (0 - s.quarterDeals, s.lastDealPaid)) salesmen
+    in
     ul [ class "leaderboard" ]
-        (List.map viewSalesman salesmen)
+        (List.map viewSalesman sortedSalesmen)
 
 
 {-| Render a single Salesman entry.

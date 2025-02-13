@@ -12,6 +12,7 @@ type alias User =
     , email : String
     , id : String
     , name : String
+    , role : String
     }
 
 
@@ -27,11 +28,12 @@ type alias AuthData =
 -}
 userDecoder : Decoder User
 userDecoder =
-    Decode.map4 User
+    Decode.map5 User
         (Decode.field "avatar" Decode.string)
         (Decode.field "email" Decode.string)
         (Decode.field "id" Decode.string)
         (Decode.field "name" Decode.string)
+        (Decode.field "role" Decode.string)
 
 
 {-| JSON decoder for the complete AuthData.
@@ -57,6 +59,7 @@ encodeUser user =
         , ( "email", Encode.string user.email )
         , ( "id", Encode.string user.id )
         , ( "name", Encode.string user.name )
+        , ( "role", Encode.string user.role )
         ]
 
 

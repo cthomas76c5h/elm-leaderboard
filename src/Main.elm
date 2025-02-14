@@ -25,7 +25,7 @@ type Model
 init : Maybe Cred -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init maybeCred url navKey =
     changeRouteTo (Route.fromUrl url)
-        (Redirect (Session.fromViewer navKey maybeCred))
+        (Redirect (Session.fromCred navKey maybeCred))
 
 
 view : Model -> Document Msg

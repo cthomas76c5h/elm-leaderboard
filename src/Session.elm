@@ -1,4 +1,4 @@
-module Session exposing (Session, changes, cred, fromViewer, navKey, viewer)
+module Session exposing (Session, changes, cred, fromCred, navKey, viewer)
 
 import Api exposing (Cred)
 import Browser.Navigation as Nav
@@ -52,17 +52,17 @@ navKey session =
 -}
 changes : (Session -> msg) -> Nav.Key -> Sub msg
 changes toMsg key =
-    Api.viewerChanges (\maybeCred -> toMsg (fromViewer key maybeCred))
+    Api.viewerChanges (\maybeCred -> toMsg (fromCred key maybeCred))
 
 
 {-| Given a navigation key and a possible Cred, returns a new Session.
     If there is a Cred then the session is LoggedIn; otherwise it is Guest.
 -}
-fromViewer : Nav.Key -> Maybe Cred -> Session
-fromViewer key maybeCred =
+fromCred : Nav.Key -> Maybe Cred -> Session
+fromCred key maybeCred =
     case maybeCred of
-        Just credVal ->
-            LoggedIn key credVal
+        Just newCred ->
+            LoggedIn key newCred
 
         Nothing ->
             Guest key

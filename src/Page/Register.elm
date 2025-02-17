@@ -1,19 +1,17 @@
-module Page.Login exposing (Model, Msg, init, subscriptions, toSession, update, view)
+module Page.Register exposing (Model, Msg, init, subscriptions, toSession, update, view)
 
-import Api exposing (Cred, login, storeCredWith, decodeErrors)
-import Auth exposing (AuthData)
-import Avatar exposing (Avatar)
+import Api exposing (register)
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onSubmit)
+import Html.Events exposing (..)
 import Http
-import Json.Decode as Decode exposing (Decoder, decodeString, field, string)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (optional)
 import Json.Encode as Encode
 import Route exposing (Route)
-import Session exposing (Session)
-import String
+import Session exposing (Session, storeUser, changes, navKey)
+import User exposing (User, userDecoder, minPasswordChars)
 
 
 -- MODEL
@@ -25,18 +23,16 @@ type alias Model =
     }
 
 
-{-| Recording validation problems on a per-field basis facilitates displaying
-    them inline next to the field where the error occurred.
--}
+type alias Form =
+    { email : String
+    , name : String
+    , password : String
+    }
+
+
 type Problem
     = InvalidEntry ValidatedField String
     | ServerError String
-
-
-type alias Form =
-    { email : String
-    , password : String
-    }
 
 
 init : Session -> ( Model, Cmd msg )
@@ -45,6 +41,7 @@ init session =
       , problems = []
       , form =
             { email = ""
+            , name = ""
             , password = ""
             }
       }
@@ -52,20 +49,21 @@ init session =
     )
 
 
+
 -- VIEW
 
 view : Model -> { title : String, content : Html Msg }
 view model =
-    { title = "Login"
+    { title = "Register"
     , content =
         div [ class "cred-page" ]
             [ div [ class "container page" ]
                 [ div [ class "row" ]
                     [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
-                        [ h1 [ class "text-xs-center" ] [ text "Sign in" ]
+                        [ h1 [ class "text-xs-center" ] [ text "Sign up" ]
                         , p [ class "text-xs-center" ]
-                            [ a [ Route.href Route.Register ]
-                                [ text "Need an account?" ]
+                            [ a [ Route.href Route.Login ]
+                                [ text "Have an account?" ]
                             ]
                         , ul [ class "error-messages" ]
                             (List.map viewProblem model.problems)
@@ -77,24 +75,19 @@ view model =
     }
 
 
-viewProblem : Problem -> Html msg
-viewProblem problem =
-    let
-        errorMessage =
-            case problem of
-                InvalidEntry _ str ->
-                    str
-
-                ServerError str ->
-                    str
-    in
-    li [] [ text errorMessage ]
-
-
 viewForm : Form -> Html Msg
 viewForm form =
     Html.form [ onSubmit SubmittedForm ]
         [ fieldset [ class "form-group" ]
+            [ input
+                [ class "form-control form-control-lg"
+                , placeholder "Name"
+                , onInput EnteredName
+                , value form.name
+                ]
+                []
+            ]
+        , fieldset [ class "form-group" ]
             [ input
                 [ class "form-control form-control-lg"
                 , placeholder "Email"
@@ -113,9 +106,24 @@ viewForm form =
                 ]
                 []
             ]
-        , button [ class "btn btn-lg btn-primary pull-xs-right", type_ "submit" ]
-            [ text "Sign in" ]
+        , button [ class "btn btn-lg btn-primary pull-xs-right" ]
+            [ text "Sign up" ]
         ]
+
+
+viewProblem : Problem -> Html msg
+viewProblem problem =
+    let
+        errorMessage =
+            case problem of
+                InvalidEntry _ str ->
+                    str
+
+                ServerError str ->
+                    str
+    in
+    li [] [ text errorMessage ]
+
 
 
 -- UPDATE
@@ -123,8 +131,9 @@ viewForm form =
 type Msg
     = SubmittedForm
     | EnteredEmail String
+    | EnteredName String
     | EnteredPassword String
-    | CompletedLogin (Result Http.Error Cred)
+    | CompletedRegister (Result Http.Error User)
     | GotSession Session
 
 
@@ -135,7 +144,7 @@ update msg model =
             case validate model.form of
                 Ok validForm ->
                     ( { model | problems = [] }
-                    , Http.send CompletedLogin (login validForm)
+                    , Http.send CompletedRegister (register validForm)
                     )
 
                 Err problems ->
@@ -143,53 +152,61 @@ update msg model =
                     , Cmd.none
                     )
 
+        EnteredName name ->
+            updateForm (\form -> { form | name = name }) model
+
         EnteredEmail email ->
             updateForm (\form -> { form | email = email }) model
 
         EnteredPassword password ->
             updateForm (\form -> { form | password = password }) model
 
-        CompletedLogin (Err error) ->
+        CompletedRegister (Err error) ->
             let
                 serverErrors =
-                    decodeErrors error
+                    Api.decodeErrors error
                         |> List.map ServerError
             in
             ( { model | problems = List.append model.problems serverErrors }
             , Cmd.none
             )
 
-        CompletedLogin (Ok cred) ->
-            -- Store the returned cred. We convert the stored avatar string to an Avatar.
+        CompletedRegister (Ok user) ->
             ( model
-            , storeCredWith cred (Avatar.fromString (cred.record.avatar))
+            , storeUser user  -- now storing the User instead of a Viewer
             )
 
         GotSession session ->
             ( { model | session = session }
-            , Route.replaceUrl (Session.navKey session) Route.Home
+            , Route.replaceUrl (navKey session) Route.Home
             )
 
 
-
-{-| Helper function for `update`. Updates the form and returns Cmd.none.
--}
 updateForm : (Form -> Form) -> Model -> ( Model, Cmd Msg )
 updateForm transform model =
     ( { model | form = transform model.form }, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Session.changes GotSession (Session.navKey model.session)
+    changes GotSession (navKey model.session)
+
+
+
+-- EXPORT
+
+toSession : Model -> Session
+toSession model =
+    model.session
+
 
 
 -- FORM
 
-{-| Marks that we've trimmed the form's fields so that we don't accidentally send
-    untrimmed data to the server.
+{-| Indicates that we've trimmed the form's fields.
 -}
 type TrimmedForm
     = Trimmed Form
@@ -198,18 +215,20 @@ type TrimmedForm
 {-| When adding a variant here, add it to `fieldsToValidate` too!
 -}
 type ValidatedField
-    = Email
+    = Name
+    | Email
     | Password
 
 
 fieldsToValidate : List ValidatedField
 fieldsToValidate =
-    [ Email
+    [ Name
+    , Email
     , Password
     ]
 
 
-{-| Trim the form and validate its fields. If there are problems, report them!
+{-| Trim the form and validate its fields.
 -}
 validate : Form -> Result (List Problem) TrimmedForm
 validate form =
@@ -227,8 +246,14 @@ validate form =
 
 validateField : TrimmedForm -> ValidatedField -> List Problem
 validateField (Trimmed form) field =
-    List.map (InvalidEntry field)
-        (case field of
+    List.map (InvalidEntry field) <|
+        case field of
+            Name ->
+                if String.isEmpty form.name then
+                    [ "name can't be blank." ]
+                else
+                    []
+
             Email ->
                 if String.isEmpty form.email then
                     [ "email can't be blank." ]
@@ -238,33 +263,36 @@ validateField (Trimmed form) field =
             Password ->
                 if String.isEmpty form.password then
                     [ "password can't be blank." ]
+                else if String.length form.password < minPasswordChars then
+                    [ "password must be at least " ++ String.fromInt minPasswordChars ++ " characters long." ]
                 else
-                    [])
+                    []
 
 
+{-| Only trim on submit (so that typing isn’t interrupted).
+-}
 trimFields : Form -> TrimmedForm
 trimFields form =
     Trimmed
-        { email = String.trim form.email
+        { name = String.trim form.name
+        , email = String.trim form.email
         , password = String.trim form.password
         }
 
 
-login : TrimmedForm -> Http.Request AuthData
-login (Trimmed form) =
+
+-- HTTP
+
+register : TrimmedForm -> Http.Request User
+register (Trimmed form) =
     let
         body =
             Encode.object
-                [ ( "identity", Encode.string form.email )
+                [ ( "name", Encode.string form.name )
+                , ( "email", Encode.string form.email )
                 , ( "password", Encode.string form.password )
+                , ( "passwordConfirm", Encode.string form.password )
                 ]
                 |> Http.jsonBody
     in
-    Api.login body Auth.loginDecoder
-
-
--- EXPORT
-
-toSession : Model -> Session
-toSession model =
-    model.session
+    Api.register body userDecoder

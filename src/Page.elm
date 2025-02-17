@@ -66,7 +66,7 @@ viewMenu page maybeCred =
 
         Nothing ->
             [ linkTo Route.Login [ text "Sign in" ]
-            , linkTo Route.Home [ text "Sign up" ]
+            , linkTo Route.Register [ text "Sign up" ]
             ]
 
 
@@ -97,6 +97,9 @@ isActive page route =
             True
 
         ( Login, Route.Login ) ->
+            True
+
+        ( Register, Route.Register ) ->
             True
 
         _ ->

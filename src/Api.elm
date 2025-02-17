@@ -28,6 +28,7 @@ import Http exposing (Body)
 import Json.Decode as Decode exposing (Decoder, Value, field)
 import Json.Encode as Encode
 import Url exposing (Url)
+import User exposing (User, userDecoder)
 import Username exposing (Username)
 
 
@@ -102,7 +103,6 @@ storeCredWith authData avatar =
         updatedAuthData = { authData | record = updatedUser }
     in
     storeAuth updatedAuthData
-
 
 
 {-| Log out by “clearing” the stored auth.
@@ -225,14 +225,14 @@ decoderFromAuth decoder =
     Decode.map2 (\fromCred cred -> fromCred cred) decoder credDecoder
 
 
-login : Http.Body -> Decoder (Cred -> a) -> Http.Request a
+login : Http.Body -> Decode.Decoder AuthData -> Http.Request AuthData
 login body decoder =
-    post Endpoint.login Nothing body (decoderFromAuth decoder)
+    post Endpoint.login Nothing body decoder
 
 
-register : Http.Body -> Decoder (Cred -> a) -> Http.Request a
+register : Http.Body -> Decode.Decoder User -> Http.Request User
 register body decoder =
-    post Endpoint.users Nothing body (Decode.field "user" (decoderFromAuth decoder))
+    post Endpoint.users Nothing body decoder
 
 
 settings : Cred -> Http.Body -> Decoder (Cred -> a) -> Http.Request a

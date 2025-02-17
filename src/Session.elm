@@ -1,8 +1,10 @@
-module Session exposing (Session, changes, cred, fromCred, navKey, viewer)
+port module Session exposing (Session, changes, cred, fromCred, navKey, viewer, storeUser)
 
 import Api exposing (Cred)
 import Browser.Navigation as Nav
-
+import Json.Encode as Encode
+import Platform.Cmd exposing (Cmd)
+import User exposing (User)
 
 
 -- TYPES
@@ -66,3 +68,48 @@ fromCred key maybeCred =
 
         Nothing ->
             Guest key
+
+
+-- PORTS
+
+{-| A port to send the user data to JavaScript (for example, to store in localStorage). -}
+port storeUserPort : Encode.Value -> Cmd msg
+
+
+{-| Given a User record, encode it as JSON and send it out the port.
+    This function lets you “store” the user on the client.
+-}
+storeUser : User -> Cmd msg
+storeUser user =
+    storeUserPort (encodeUser user)
+
+
+{-| Helper function to encode a User record as JSON.
+    This encoder should match the JSON response from your server:
+    {
+        "avatar": "",
+        "collectionId": "_pb_users_auth_",
+        "collectionName": "users",
+        "created": "2025-02-17 20:35:08.782Z",
+        "emailVisibility": false,
+        "id": "xcn1q90665dybc5",
+        "name": "john doe",
+        "role": "",
+        "updated": "2025-02-17 20:35:08.782Z",
+        "verified": false
+    }
+-}
+encodeUser : User -> Encode.Value
+encodeUser user =
+    Encode.object
+        [ ( "avatar", Encode.string user.avatar )
+        , ( "collectionId", Encode.string user.collectionId )
+        , ( "collectionName", Encode.string user.collectionName )
+        , ( "created", Encode.string user.created )
+        , ( "emailVisibility", Encode.bool user.emailVisibility )
+        , ( "id", Encode.string user.id )
+        , ( "name", Encode.string user.name )
+        , ( "role", Encode.string user.role )
+        , ( "updated", Encode.string user.updated )
+        , ( "verified", Encode.bool user.verified )
+        ]

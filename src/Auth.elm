@@ -1,11 +1,13 @@
 port module Auth exposing (..)
 
 import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Pipeline exposing (required, optional)
 import Json.Encode as Encode
 import Platform.Cmd exposing (Cmd)
 
-
 {-| Our user record type.
+    Note: If your backend does not send an "email" field, you may choose to
+    use `optional` with a default value.
 -}
 type alias User =
     { avatar : String
@@ -24,16 +26,26 @@ type alias AuthData =
     }
 
 
-{-| JSON decoder for the User type.
+{-| Decoder for a User.
 -}
 userDecoder : Decoder User
 userDecoder =
-    Decode.map5 User
-        (Decode.field "avatar" Decode.string)
-        (Decode.field "email" Decode.string)
-        (Decode.field "id" Decode.string)
-        (Decode.field "name" Decode.string)
-        (Decode.field "role" Decode.string)
+    Decode.succeed User
+        |> required "avatar" Decode.string
+        |> optional "email" Decode.string ""
+        |> required "id" Decode.string
+        |> required "name" Decode.string
+        |> required "role" Decode.string
+
+
+{-| Decoder for login response.
+    Expects a JSON object with "token" and "user".
+-}
+loginDecoder : Decoder AuthData
+loginDecoder =
+    Decode.map2 AuthData
+        (Decode.field "token" Decode.string)
+        (Decode.field "user" userDecoder)
 
 
 {-| JSON decoder for the complete AuthData.

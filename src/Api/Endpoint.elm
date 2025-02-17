@@ -42,7 +42,7 @@ unwrap (Endpoint str) =
 
 url : List String -> List QueryParameter -> Endpoint
 url paths queryParams =
-    Url.Builder.crossOrigin "http://localhost:8080"
+    Url.Builder.crossOrigin "https://api.jackpot.answeringlegal.com"
         ("api" :: paths)
         queryParams
         |> Endpoint
@@ -67,7 +67,7 @@ user =
 
 users : Endpoint
 users =
-    url [ "users" ] []
+    url [ "collections", "users", "records" ] []
 
 
 -- ARTICLE ENDPOINTS

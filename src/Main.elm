@@ -10,6 +10,7 @@ import Page.Blank as Blank
 import Page.Home as Home
 import Page.Login as Login
 import Page.NotFound as NotFound
+import Page.Register as Register
 import Route exposing (Route)
 import Session exposing (Session)
 import Url exposing (Url)
@@ -20,6 +21,7 @@ type Model
     | Home Home.Model
     | NotFound Session
     | Login Login.Model
+    | Register Register.Model
 
 
 init : Maybe Cred -> Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -56,12 +58,16 @@ view model =
         Login login ->
             viewPage Page.Other GotLoginMsg (Login.view login)
 
+        Register register ->
+            viewPage Page.Other GotRegisterMsg (Register.view register)
+
 
 type Msg
     = ChangedUrl Url
     | GotHomeMsg Home.Msg
     | ClickedLink Browser.UrlRequest
     | GotLoginMsg Login.Msg
+    | GotRegisterMsg Register.Msg
     | GotSession Session
 
 
@@ -70,15 +76,18 @@ toSession page =
     case page of
         Redirect session ->
             session
-        
-        Home home ->
-            Home.toSession home
 
         NotFound session ->
             session
 
+        Home home ->
+            Home.toSession home
+
         Login login ->
             Login.toSession login
+
+        Register register ->
+            Register.toSession register
 
 
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -104,6 +113,10 @@ changeRouteTo maybeRoute model =
         Just Route.Login ->
             Login.init session
                 |> updateWith Login GotLoginMsg model
+
+        Just Route.Register ->
+            Register.init session
+                |> updateWith Register GotRegisterMsg model
 
 
 
@@ -142,6 +155,10 @@ update msg model =
             Login.update subMsg login
                 |> updateWith Login GotLoginMsg model
 
+        ( GotRegisterMsg subMsg, Register register ) ->
+            Register.update subMsg register
+                |> updateWith Register GotRegisterMsg model
+
         ( GotHomeMsg subMsg, Home home ) ->
             Home.update subMsg home
                 |> updateWith Home GotHomeMsg model
@@ -177,6 +194,9 @@ subscriptions model =
 
         Login login ->
             Sub.map GotLoginMsg (Login.subscriptions login)
+
+        Register register ->
+            Sub.map GotRegisterMsg (Register.subscriptions register)
 
 
 main : Program Value Model Msg
